@@ -7,7 +7,9 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_API_URL = "https://blueskills.bluethroatlabs.com"
+# Front Door in front of the API. blueskills.bluethroatlabs.com is the website
+# (Vercel) and answers POST /scan.json with an HTML 404.
+DEFAULT_API_URL = "https://blueskills-web-hzdtf5buftehbya8.z03.azurefd.net"
 # Public GitHub App client ID. The client secret stays out of the distributed CLI.
 DEFAULT_GITHUB_CLIENT_ID = "Iv23liH0YU6oTHHz0i8O"
 

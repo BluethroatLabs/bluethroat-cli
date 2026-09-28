@@ -6,7 +6,7 @@ import httpx
 
 from bluethroat.api import _with_ref
 from bluethroat.cli import main
-from bluethroat.config import DEFAULT_GITHUB_CLIENT_ID, Config
+from bluethroat.config import DEFAULT_API_URL, DEFAULT_GITHUB_CLIENT_ID, Config
 from bluethroat.credentials import MemoryStore, Session, _file_load, _file_save
 from bluethroat.report import render
 
@@ -24,9 +24,13 @@ def _session() -> Session:
 
 def test_default_github_client_id(monkeypatch):
     monkeypatch.delenv("BLUETHROAT_GITHUB_CLIENT_ID", raising=False)
+    monkeypatch.delenv("BLUETHROAT_API_URL", raising=False)
     monkeypatch.setenv("BLUETHROAT_CONFIG_DIR", "/nonexistent-bluethroat-config")
     assert Config.load().github_client_id == DEFAULT_GITHUB_CLIENT_ID
     assert DEFAULT_GITHUB_CLIENT_ID == "Iv23liH0YU6oTHHz0i8O"
+    assert Config.load().api_url == DEFAULT_API_URL
+    assert "azurefd.net" in DEFAULT_API_URL
+    assert "bluethroatlabs.com" not in DEFAULT_API_URL
 
 
 def test_device_flow_login(monkeypatch, capsys):

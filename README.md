@@ -16,7 +16,7 @@ Add `--json` for the scan document returned by the API. Without it, the command 
 | --- | --- |
 | `BLUETHROAT_GITHUB_CLIENT_ID` | GitHub App client ID. Defaults to the Bluethroat app (`Iv23liH0YU6oTHHz0i8O`). |
 | `BLUETHROAT_GITHUB_CLIENT_SECRET` | Optional, for development only. Revokes directly at GitHub instead of through BlueSkills. Do not put this in the distributed client. |
-| `BLUETHROAT_API_URL` | BlueSkills API origin. Defaults to `https://blueskills.bluethroatlabs.com`. |
+| `BLUETHROAT_API_URL` | BlueSkills API origin. Defaults to `https://blueskills-web-hzdtf5buftehbya8.z03.azurefd.net`. |
 
 The same keys can live in `~/.config/bluethroat/config.json` as `github_client_id`, `github_client_secret`, and `api_url`. Environment variables win.
 
