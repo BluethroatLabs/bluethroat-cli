@@ -1,0 +1,17 @@
+[project]
+name = "bluethroat"
+version = "0.1.0"
+description = "Command-line client for BlueSkills"
+readme = "README.md"
+authors = [
+    { name = "iamwehi", email = "iamwehi@proton.me" }
+]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+bluethroat = "bluethroat.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"
