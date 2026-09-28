@@ -5,10 +5,10 @@
 is the status of that scan and is not a command the user runs: ``scan`` polls
 it until the report is finished.
 
-BlueSkills does not check a caller identity yet. This client still sends the
-GitHub App user access token as ``Authorization: Bearer``. When the API starts
-requiring GitHub login, it can verify that token with ``GET /user`` and key
-limits on the numeric user id. The header is ignored until then.
+Every request sends the GitHub App user access token as
+``Authorization: Bearer``. BlueSkills checks it with the app's credentials and
+keys its limits on the numeric GitHub user id. ``POST /auth/github/revoke``
+revokes that token at GitHub for ``auth logout``.
 """
 
 from __future__ import annotations
@@ -67,6 +67,16 @@ class BlueSkillsClient:
         if not scan_id:
             raise CliError("The scan did not return an id to wait on.", SERVICE)
         return self._wait(scan_id)
+
+    def revoke(self) -> None:
+        """Ask BlueSkills to revoke the session's access token at GitHub."""
+        code, _doc = self._request("POST", "/auth/github/revoke")
+        if code != 204:
+            raise CliError(
+                "The local session was removed, but GitHub did not revoke the token. "
+                "Revoke Bluethroat under GitHub Settings → Applications.",
+                SERVICE,
+            )
 
     def _wait(self, scan_id: str) -> dict:
         print("Waiting for the report…", file=_err(), flush=True)

@@ -6,6 +6,7 @@ import httpx
 
 from bluethroat.api import _with_ref
 from bluethroat.cli import main
+from bluethroat.config import DEFAULT_GITHUB_CLIENT_ID, Config
 from bluethroat.credentials import MemoryStore, Session, _file_load, _file_save
 from bluethroat.report import render
 
@@ -19,6 +20,13 @@ def _session() -> Session:
         login="octocat",
         user_id=7,
     )
+
+
+def test_default_github_client_id(monkeypatch):
+    monkeypatch.delenv("BLUETHROAT_GITHUB_CLIENT_ID", raising=False)
+    monkeypatch.setenv("BLUETHROAT_CONFIG_DIR", "/nonexistent-bluethroat-config")
+    assert Config.load().github_client_id == DEFAULT_GITHUB_CLIENT_ID
+    assert DEFAULT_GITHUB_CLIENT_ID == "Iv23liH0YU6oTHHz0i8O"
 
 
 def test_device_flow_login(monkeypatch, capsys):
@@ -310,3 +318,79 @@ def test_repository_ref_rewrite():
     assert _with_ref("https://gitlab.com/owner/repository.git", "v1") == (
         "https://gitlab.com/owner/repository/-/tree/v1"
     )
+
+
+def _no_local_secret(monkeypatch) -> None:
+    monkeypatch.setenv("BLUETHROAT_GITHUB_CLIENT_ID", "Iv1.test")
+    monkeypatch.delenv("BLUETHROAT_GITHUB_CLIENT_SECRET", raising=False)
+    monkeypatch.setenv("BLUETHROAT_CONFIG_DIR", "/nonexistent-bluethroat-config")
+    monkeypatch.setenv("BLUETHROAT_API_URL", "https://scanner.example")
+
+
+def test_refresh_does_not_need_a_client_secret(monkeypatch):
+    _no_local_secret(monkeypatch)
+    seen: dict[str, list[str]] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/login/oauth/access_token":
+            seen.update(parse_qs(request.content.decode()))
+            return httpx.Response(200, json={
+                "access_token": "ghu_fresh",
+                "refresh_token": "ghr_fresh",
+                "expires_in": 28800,
+                "refresh_token_expires_in": 15897600,
+            })
+        if request.url.path == "/user":
+            return httpx.Response(200, json={"login": "octocat", "id": 7})
+        raise AssertionError(request.url.path)
+
+    store = MemoryStore()
+    stale = _session()
+    stale.expires_at = 0
+    store.save(stale)
+    code = main(
+        ["auth", "status"],
+        store=store,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+        now=lambda: 1_000.0,
+    )
+    assert code == 0
+    assert "client_secret" not in seen
+    assert seen["grant_type"] == ["refresh_token"]
+    assert seen["refresh_token"] == ["ghr_test"]
+    assert store.session.access_token == "ghu_fresh"
+
+
+def test_logout_revokes_through_blueskills(monkeypatch, capsys):
+    _no_local_secret(monkeypatch)
+    seen: list[tuple[str, str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append((request.method, str(request.url), request.headers["authorization"]))
+        return httpx.Response(204)
+
+    store = MemoryStore()
+    store.save(_session())
+    code = main(
+        ["auth", "logout"],
+        store=store,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert code == 0
+    assert store.session is None
+    assert seen == [("POST", "https://scanner.example/auth/github/revoke", "Bearer ghu_test")]
+    assert "logged out" in capsys.readouterr().out
+
+
+def test_logout_reports_a_failed_revoke(monkeypatch, capsys):
+    _no_local_secret(monkeypatch)
+    store = MemoryStore()
+    store.save(_session())
+    code = main(
+        ["auth", "logout"],
+        store=store,
+        client=httpx.Client(transport=httpx.MockTransport(lambda _r: httpx.Response(503, json={}))),
+    )
+    assert code != 0
+    assert store.session is None
+    assert "GitHub Settings" in capsys.readouterr().err

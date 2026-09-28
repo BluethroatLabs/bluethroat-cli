@@ -145,23 +145,10 @@ def _logout(_args: argparse.Namespace, *, store: SessionStore, http: httpx.Clien
         print("logged out")
         return 0
     config = Config.load()
-    if session is not None and config.github_client_secret:
-        GitHubAuth(
-            http,
-            config.github_client_id,
-            client_secret=config.github_client_secret,
-            opener=kwargs.get("opener"),  # type: ignore[arg-type]
-            sleep=kwargs.get("sleep"),  # type: ignore[arg-type]
-            now=kwargs.get("now"),  # type: ignore[arg-type]
-        ).revoke(session)
-        print("logged out")
-        return 0
-    if session is not None:
-        print(
-            "logged out. Revoke Bluethroat under GitHub Settings → Applications "
-            "to invalidate the token GitHub still holds."
-        )
-        return 0
+    if config.github_client_secret:
+        _github(http, **kwargs).revoke(session)
+    else:
+        BlueSkillsClient(http, config.api_url, session).revoke()
     print("logged out")
     return 0
 

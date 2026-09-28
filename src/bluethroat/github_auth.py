@@ -1,8 +1,9 @@
 """GitHub App device flow.
 
-The device grant sends only the public client ID. The client secret is not
-part of that request. A secret is used only to refresh or revoke a token, and
-only when the operator has set one. A distributed CLI cannot keep that secret.
+The device grant and the refresh grant send only the public client ID. A
+distributed CLI cannot keep the client secret, so revocation goes through
+BlueSkills (``POST /auth/github/revoke``), which holds it. A secret set locally
+still revokes directly at GitHub.
 
 See GitHub's "Generating a user access token for a GitHub App".
 """
@@ -94,22 +95,23 @@ class GitHubAuth:
         return body
 
     def refresh(self, session: Session) -> Session:
-        """Exchange a refresh token. Requires the GitHub App client secret."""
-        if not self._client_secret:
-            raise CliError("The GitHub session expired. Run bluethroat auth login.", AUTH)
+        """Exchange a refresh token.
+
+        GitHub does not require the client secret for a token that came from
+        the device flow, so the distributed client refreshes on its own.
+        """
         if not session.refresh_token:
             raise CliError("The GitHub session expired. Run bluethroat auth login.", AUTH)
         if session.refresh_expires_at and self._now() >= session.refresh_expires_at:
             raise CliError("The GitHub session expired. Run bluethroat auth login.", AUTH)
-        token = self._post_form(
-            f"{GITHUB}/login/oauth/access_token",
-            {
-                "client_id": self._client_id,
-                "client_secret": self._client_secret,
-                "grant_type": "refresh_token",
-                "refresh_token": session.refresh_token,
-            },
-        )
+        fields = {
+            "client_id": self._client_id,
+            "grant_type": "refresh_token",
+            "refresh_token": session.refresh_token,
+        }
+        if self._client_secret:
+            fields["client_secret"] = self._client_secret
+        token = self._post_form(f"{GITHUB}/login/oauth/access_token", fields)
         if token.get("error"):
             raise CliError("The GitHub session expired. Run bluethroat auth login.", AUTH)
         identity = self.identity(str(token["access_token"]))

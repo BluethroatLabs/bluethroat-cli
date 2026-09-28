@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_API_URL = "https://blueskills.bluethroatlabs.com"
+# Public GitHub App client ID. The client secret stays out of the distributed CLI.
+DEFAULT_GITHUB_CLIENT_ID = "Iv23liH0YU6oTHHz0i8O"
 
 
 def config_dir() -> Path:
@@ -51,7 +53,11 @@ class Config:
     @classmethod
     def load(cls) -> Config:
         return cls(
-            github_client_id=_pick("BLUETHROAT_GITHUB_CLIENT_ID", "github_client_id"),
+            github_client_id=_pick(
+                "BLUETHROAT_GITHUB_CLIENT_ID",
+                "github_client_id",
+                DEFAULT_GITHUB_CLIENT_ID,
+            ),
             github_client_secret=_pick("BLUETHROAT_GITHUB_CLIENT_SECRET", "github_client_secret"),
             api_url=_pick("BLUETHROAT_API_URL", "api_url", DEFAULT_API_URL).rstrip("/"),
         )
