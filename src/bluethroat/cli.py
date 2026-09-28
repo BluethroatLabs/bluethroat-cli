@@ -1,25 +1,63 @@
 """``bluethroat`` command line.
 
-``scan`` is synchronous: it submits a source, waits for the hosted report, and
-prints it. Callers do not poll.
+``scan`` submits a source, waits for the hosted report, and prints it.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from collections.abc import Callable
+
+import httpx
 
 from bluethroat import __version__
+from bluethroat.api import BlueSkillsClient
+from bluethroat.config import Config
+from bluethroat.credentials import CredentialStore, SessionStore
+from bluethroat.errors import AUTH, INVALID, SERVICE, CliError, code_for
+from bluethroat.github_auth import GitHubAuth
+from bluethroat.report import _commit, outcome, render
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    store: SessionStore | None = None,
+    client: httpx.Client | None = None,
+    opener: Callable[[str], object] | None = None,
+    sleep: Callable[[float], None] | None = None,
+    now: Callable[[], float] | None = None,
+    clock: Callable[[], float] | None = None,
+) -> int:
     parser = _parser()
     args = parser.parse_args(argv)
     handler = getattr(args, "handler", None)
     if handler is None:
         parser.print_help()
-        return 4
-    return handler(args)
+        return INVALID
+    owns_client = client is None
+    http = client or httpx.Client(timeout=httpx.Timeout(10.0, read=120.0))
+    try:
+        return handler(
+            args,
+            store=store or CredentialStore(),
+            http=http,
+            opener=opener,
+            sleep=sleep,
+            now=now,
+            clock=clock,
+        )
+    except CliError as exc:
+        print(str(exc), file=sys.stderr)
+        if getattr(args, "json", False) and exc.body is not None:
+            json.dump(exc.body, sys.stdout)
+            sys.stdout.write("\n")
+        return exc.code
+    finally:
+        if owns_client:
+            http.close()
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -33,11 +71,11 @@ def _parser() -> argparse.ArgumentParser:
     auth = commands.add_parser("auth", help="Log in with the Bluethroat GitHub App.")
     auth_commands = auth.add_subparsers(dest="auth_command")
     login = auth_commands.add_parser("login", help="Authorize this client once via GitHub device flow.")
-    login.set_defaults(handler=_not_ready)
+    login.set_defaults(handler=_login)
     status = auth_commands.add_parser("status", help="Show the logged-in GitHub account.")
-    status.set_defaults(handler=_not_ready)
+    status.set_defaults(handler=_status)
     logout = auth_commands.add_parser("logout", help="Remove the local credential and revoke it.")
-    logout.set_defaults(handler=_not_ready)
+    logout.set_defaults(handler=_logout)
     auth.set_defaults(handler=_auth_help)
 
     blueskills = commands.add_parser("blueskills", help="BlueSkills scans.")
@@ -50,33 +88,127 @@ def _parser() -> argparse.ArgumentParser:
         "source",
         help="Public GitHub or GitLab URL, a skill directory, a .zip, or a SKILL.md file.",
     )
-    scan.add_argument(
-        "--ref",
-        help="Branch, tag, or commit. Only valid for a repository URL.",
-    )
+    scan.add_argument("--ref", help="Branch, tag, or commit. Only valid for a repository URL.")
     scan.add_argument(
         "--json",
         action="store_true",
         help="Print the hosted scan document as JSON. The default is a text report.",
     )
-    scan.set_defaults(handler=_not_ready)
+    scan.set_defaults(handler=_scan)
     blueskills.set_defaults(handler=_blueskills_help)
     return parser
 
 
-def _auth_help(_args: argparse.Namespace) -> int:
+def _auth_help(_args: argparse.Namespace, **_kwargs: object) -> int:
     print("usage: bluethroat auth {login,status,logout}", file=sys.stderr)
-    return 4
+    return INVALID
 
 
-def _blueskills_help(_args: argparse.Namespace) -> int:
+def _blueskills_help(_args: argparse.Namespace, **_kwargs: object) -> int:
     print("usage: bluethroat blueskills scan <source> [--ref REF] [--json]", file=sys.stderr)
-    return 4
+    return INVALID
 
 
-def _not_ready(_args: argparse.Namespace) -> int:
-    print("bluethroat: this command is not implemented yet", file=sys.stderr)
-    return 7
+def _github(http: httpx.Client, **kwargs: object) -> GitHubAuth:
+    config = Config.load()
+    return GitHubAuth(
+        http,
+        config.github_client_id,
+        client_secret=config.github_client_secret,
+        opener=kwargs.get("opener"),  # type: ignore[arg-type]
+        sleep=kwargs.get("sleep"),  # type: ignore[arg-type]
+        now=kwargs.get("now"),  # type: ignore[arg-type]
+    )
+
+
+def _login(_args: argparse.Namespace, *, store: SessionStore, http: httpx.Client, **kwargs: object) -> int:
+    session = _github(http, **kwargs).login()
+    store.save(session)
+    print(f"logged in as {session.login}")
+    return 0
+
+
+def _status(_args: argparse.Namespace, *, store: SessionStore, http: httpx.Client, **kwargs: object) -> int:
+    session = store.load()
+    if session is None:
+        raise CliError("not logged in", AUTH)
+    session = _github(http, **kwargs).ensure(session)
+    store.save(session)
+    print(f"logged in as {session.login} (id {session.user_id})")
+    return 0
+
+
+def _logout(_args: argparse.Namespace, *, store: SessionStore, http: httpx.Client, **kwargs: object) -> int:
+    session = store.load()
+    store.clear()
+    if session is None:
+        print("logged out")
+        return 0
+    config = Config.load()
+    if session is not None and config.github_client_secret:
+        GitHubAuth(
+            http,
+            config.github_client_id,
+            client_secret=config.github_client_secret,
+            opener=kwargs.get("opener"),  # type: ignore[arg-type]
+            sleep=kwargs.get("sleep"),  # type: ignore[arg-type]
+            now=kwargs.get("now"),  # type: ignore[arg-type]
+        ).revoke(session)
+        print("logged out")
+        return 0
+    if session is not None:
+        print(
+            "logged out. Revoke Bluethroat under GitHub Settings → Applications "
+            "to invalidate the token GitHub still holds."
+        )
+        return 0
+    print("logged out")
+    return 0
+
+
+def _scan(
+    args: argparse.Namespace,
+    *,
+    store: SessionStore,
+    http: httpx.Client,
+    **kwargs: object,
+) -> int:
+    session = store.load()
+    if session is None:
+        raise CliError("not logged in. Run bluethroat auth login.", AUTH)
+    auth = _github(http, **kwargs)
+    session = auth.ensure(session)
+    store.save(session)
+    doc = BlueSkillsClient(
+        http,
+        Config.load().api_url,
+        session,
+        sleep=kwargs.get("sleep"),  # type: ignore[arg-type]
+        clock=kwargs.get("clock"),  # type: ignore[arg-type]
+    ).scan(args.source, ref=args.ref)
+    _check_ref(args.ref, _commit(doc))
+    verdict, complete = outcome(doc)
+    if args.json:
+        json.dump(doc, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print(render(doc))
+    if doc.get("status") == "failed":
+        return SERVICE
+    return code_for(verdict, complete=complete)
+
+
+def _check_ref(ref: str | None, served: str) -> None:
+    if not ref or len(ref) != 40 or any(char not in "0123456789abcdefABCDEF" for char in ref):
+        return
+    wanted = ref.lower()
+    got = served.lower()
+    if got and (wanted.startswith(got) or got.startswith(wanted)):
+        return
+    raise CliError(
+        "The host served a different commit than --ref. No verdict.",
+        INVALID,
+    )
 
 
 if __name__ == "__main__":
