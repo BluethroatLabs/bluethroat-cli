@@ -3,7 +3,7 @@
 Command-line client for BlueSkills. Log in once with the Bluethroat GitHub App, then `scan` waits for the report and prints it.
 
 ```bash
-uv tool install .
+uv tool install bluethroat
 bluethroat auth login
 bluethroat blueskills scan https://github.com/owner/repository --ref <commit>
 ```
