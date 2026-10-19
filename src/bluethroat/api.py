@@ -130,7 +130,7 @@ def _finished(code: int, doc: dict) -> bool:
     return code == 200 and ("worst_verdict" in doc or "verdict" in doc)
 
 
-def _raise_for_status(code: int, doc: dict) -> None:
+def _raise_for_status(code: int, doc: dict, *, service: str = "BlueSkills") -> None:
     if code == 429:
         retry = doc.get("retry_after")
         if retry is None:
@@ -143,7 +143,7 @@ def _raise_for_status(code: int, doc: dict) -> None:
     if code in {400, 413, 422}:
         raise CliError(str(doc.get("error") or "The scan was rejected."), INVALID)
     if code >= 400:
-        raise CliError(str(doc.get("error") or f"BlueSkills returned HTTP {code}."), SERVICE)
+        raise CliError(str(doc.get("error") or f"{service} returned HTTP {code}."), SERVICE)
 
 
 def _int(value: object) -> int:

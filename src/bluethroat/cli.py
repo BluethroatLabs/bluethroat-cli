@@ -1,6 +1,7 @@
 """``bluethroat`` command line.
 
-``scan`` submits a source, waits for the hosted report, and prints it.
+``blueskills scan`` submits a skill, waits for the hosted report, and prints it.
+``clone`` and ``bluegate scan`` do the same for a GitHub repository on BlueGate.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import httpx
 
 from bluethroat import __version__
 from bluethroat.api import BlueSkillsClient
+from bluethroat.bluegate import BlueGateClient
 from bluethroat.config import Config
 from bluethroat.credentials import CredentialStore, SessionStore
 from bluethroat.errors import AUTH, INVALID, SERVICE, CliError, code_for
@@ -63,7 +65,7 @@ def main(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bluethroat",
-        description="Scan an agent skill with BlueSkills before installing it.",
+        description="Scan an agent skill with BlueSkills, or a GitHub repository with BlueGate.",
     )
     parser.add_argument("--version", action="version", version=f"bluethroat {__version__}")
     commands = parser.add_subparsers(dest="command")
@@ -96,7 +98,42 @@ def _parser() -> argparse.ArgumentParser:
     )
     scan.set_defaults(handler=_scan)
     blueskills.set_defaults(handler=_blueskills_help)
+
+    _add_bluegate_scan(
+        commands,
+        "clone",
+        help="Scan a public GitHub repository with BlueGate (same as bluegate scan).",
+    )
+    bluegate = commands.add_parser("bluegate", help="BlueGate scans.")
+    bluegate_commands = bluegate.add_subparsers(dest="bluegate_command")
+    _add_bluegate_scan(
+        bluegate_commands,
+        "scan",
+        help="Scan a public GitHub repository with BlueGate and print the report.",
+    )
+    bluegate.set_defaults(handler=_bluegate_help)
     return parser
+
+
+def _add_bluegate_scan(commands: argparse._SubParsersAction, name: str, *, help: str) -> None:
+    scan = commands.add_parser(name, help=help)
+    scan.add_argument(
+        "repo",
+        help="Public GitHub repository: https://github.com/owner/repo, github.com/owner/repo, or owner/repo.",
+    )
+    scan.add_argument("--ref", help="Branch, tag, or commit.")
+    output = scan.add_mutually_exclusive_group()
+    output.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the hosted scan document as JSON. The default is the text report.",
+    )
+    output.add_argument(
+        "--agent",
+        action="store_true",
+        help="Print the agent-facing report: verdict and commit first, repository text fenced.",
+    )
+    scan.set_defaults(handler=_bluegate_scan)
 
 
 def _auth_help(_args: argparse.Namespace, **_kwargs: object) -> int:
@@ -106,6 +143,11 @@ def _auth_help(_args: argparse.Namespace, **_kwargs: object) -> int:
 
 def _blueskills_help(_args: argparse.Namespace, **_kwargs: object) -> int:
     print("usage: bluethroat blueskills scan <source> [--ref REF] [--json]", file=sys.stderr)
+    return INVALID
+
+
+def _bluegate_help(_args: argparse.Namespace, **_kwargs: object) -> int:
+    print("usage: bluethroat bluegate scan <repo> [--ref REF] [--json] [--agent]", file=sys.stderr)
     return INVALID
 
 
@@ -180,6 +222,42 @@ def _scan(
         sys.stdout.write("\n")
     else:
         print(render(doc))
+    if doc.get("status") == "failed":
+        return SERVICE
+    return code_for(verdict, complete=complete)
+
+
+def _bluegate_scan(
+    args: argparse.Namespace,
+    *,
+    store: SessionStore,
+    http: httpx.Client,
+    **kwargs: object,
+) -> int:
+    session = store.load()
+    if session is None:
+        raise CliError("not logged in. Run bluethroat auth login.", AUTH)
+    auth = _github(http, **kwargs)
+    session = auth.ensure(session)
+    store.save(session)
+    client = BlueGateClient(
+        http,
+        Config.load().bluegate_api_url,
+        session,
+        sleep=kwargs.get("sleep"),  # type: ignore[arg-type]
+        clock=kwargs.get("clock"),  # type: ignore[arg-type]
+    )
+    doc = client.scan(args.repo, ref=args.ref)
+    _check_ref(args.ref, _commit(doc))
+    verdict, complete = outcome(doc)
+    if args.json:
+        json.dump(doc, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        text = client.report(str(doc.get("scan_id") or ""), fmt="agent" if args.agent else "text")
+        sys.stdout.write(text)
+        if text and not text.endswith("\n"):
+            sys.stdout.write("\n")
     if doc.get("status") == "failed":
         return SERVICE
     return code_for(verdict, complete=complete)

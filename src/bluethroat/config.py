@@ -10,6 +10,8 @@ from pathlib import Path
 # Front Door in front of the API. blueskills.bluethroatlabs.com is the website
 # (Vercel) and answers POST /scan.json with an HTML 404.
 DEFAULT_API_URL = "https://blueskills-web-hzdtf5buftehbya8.z03.azurefd.net"
+# BlueGate serves the site and the API from one origin, so this is both.
+DEFAULT_BLUEGATE_API_URL = "https://bluegate.bluethroatlabs.com"
 # Public GitHub App client ID. The client secret stays out of the distributed CLI.
 DEFAULT_GITHUB_CLIENT_ID = "Iv23liH0YU6oTHHz0i8O"
 
@@ -32,7 +34,7 @@ def _file_values() -> dict[str, str]:
     if not isinstance(raw, dict):
         return {}
     out: dict[str, str] = {}
-    for key in ("github_client_id", "github_client_secret", "api_url"):
+    for key in ("github_client_id", "github_client_secret", "api_url", "bluegate_api_url"):
         value = raw.get(key)
         if isinstance(value, str) and value.strip():
             out[key] = value.strip()
@@ -51,6 +53,7 @@ class Config:
     github_client_id: str
     github_client_secret: str
     api_url: str
+    bluegate_api_url: str
 
     @classmethod
     def load(cls) -> Config:
@@ -62,4 +65,9 @@ class Config:
             ),
             github_client_secret=_pick("BLUETHROAT_GITHUB_CLIENT_SECRET", "github_client_secret"),
             api_url=_pick("BLUETHROAT_API_URL", "api_url", DEFAULT_API_URL).rstrip("/"),
+            bluegate_api_url=_pick(
+                "BLUETHROAT_BLUEGATE_API_URL",
+                "bluegate_api_url",
+                DEFAULT_BLUEGATE_API_URL,
+            ).rstrip("/"),
         )

@@ -1,7 +1,7 @@
 [project]
 name = "bluethroat"
-version = "0.1.0"
-description = "Command-line client for BlueSkills"
+version = "0.1.2"
+description = "Command-line client for BlueSkills and BlueGate"
 readme = "README.md"
 authors = [
     { name = "iamwehi", email = "iamwehi@proton.me" }
@@ -21,6 +21,12 @@ addopts = "-q"
 
 [project.scripts]
 bluethroat = "bluethroat.cli:main"
+
+[project.urls]
+Homepage = "https://blueskills.bluethroatlabs.com"
+Documentation = "https://blueskills.bluethroatlabs.com/for-agents"
+Source = "https://github.com/BluethroatLabs/bluethroat-cli"
+Issues = "https://github.com/BluethroatLabs/bluethroat-cli/issues"
 
 [build-system]
 requires = ["uv_build>=0.12.13,<0.13.0"]
