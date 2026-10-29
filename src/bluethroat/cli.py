@@ -1,8 +1,4 @@
-"""``bluethroat`` command line.
-
-``blueskills scan`` submits a skill, waits for the hosted report, and prints it.
-``clone`` and ``bluegate scan`` do the same for a GitHub repository on BlueGate.
-"""
+"""``bluethroat`` command line."""
 
 from __future__ import annotations
 
@@ -10,15 +6,23 @@ import argparse
 import json
 import sys
 from collections.abc import Callable
+from pathlib import Path
 
 import httpx
 
 from bluethroat import __version__
 from bluethroat.api import BlueSkillsClient
 from bluethroat.bluegate import BlueGateClient
+from bluethroat.bluepaper import (
+    BluePaperClient,
+    check_output,
+    default_output,
+    render as render_bluepaper,
+    write_pdf,
+)
 from bluethroat.config import Config
 from bluethroat.credentials import CredentialStore, SessionStore
-from bluethroat.errors import AUTH, INVALID, SERVICE, CliError, code_for
+from bluethroat.errors import AUTH, CLEAN, INVALID, SERVICE, SUSPICIOUS, CliError, code_for
 from bluethroat.github_auth import GitHubAuth
 from bluethroat.report import _commit, outcome, render
 
@@ -65,7 +69,7 @@ def main(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bluethroat",
-        description="Scan an agent skill with BlueSkills, or a GitHub repository with BlueGate.",
+        description="Use BlueSkills, BlueGate, and BluePaper from one authenticated CLI.",
     )
     parser.add_argument("--version", action="version", version=f"bluethroat {__version__}")
     commands = parser.add_subparsers(dest="command")
@@ -112,6 +116,32 @@ def _parser() -> argparse.ArgumentParser:
         help="Scan a public GitHub repository with BlueGate and print the report.",
     )
     bluegate.set_defaults(handler=_bluegate_help)
+
+    bluepaper = commands.add_parser("bluepaper", help="BluePaper document sanitization.")
+    bluepaper_commands = bluepaper.add_subparsers(dest="bluepaper_command")
+    convert = bluepaper_commands.add_parser(
+        "convert",
+        help="Rebuild a document as a safe PDF.",
+    )
+    convert.add_argument("source", help="Document to upload.")
+    convert.add_argument(
+        "-o",
+        "--output",
+        help="Output PDF path. Defaults to <source stem>-safe.pdf.",
+    )
+    convert.add_argument("--ocr-lang", help="Tesseract OCR language code, for example eng.")
+    convert.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace an existing output file (never follows symlinks).",
+    )
+    convert.add_argument(
+        "--json",
+        action="store_true",
+        help="Print conversion status and the byte-indicator report as JSON.",
+    )
+    convert.set_defaults(handler=_bluepaper_convert)
+    bluepaper.set_defaults(handler=_bluepaper_help)
     return parser
 
 
@@ -148,6 +178,15 @@ def _blueskills_help(_args: argparse.Namespace, **_kwargs: object) -> int:
 
 def _bluegate_help(_args: argparse.Namespace, **_kwargs: object) -> int:
     print("usage: bluethroat bluegate scan <repo> [--ref REF] [--json] [--agent]", file=sys.stderr)
+    return INVALID
+
+
+def _bluepaper_help(_args: argparse.Namespace, **_kwargs: object) -> int:
+    print(
+        "usage: bluethroat bluepaper convert <document> "
+        "[-o OUTPUT] [--ocr-lang LANG] [--force] [--json]",
+        file=sys.stderr,
+    )
     return INVALID
 
 
@@ -261,6 +300,49 @@ def _bluegate_scan(
     if doc.get("status") == "failed":
         return SERVICE
     return code_for(verdict, complete=complete)
+
+
+def _bluepaper_convert(
+    args: argparse.Namespace,
+    *,
+    store: SessionStore,
+    http: httpx.Client,
+    **kwargs: object,
+) -> int:
+    session = store.load()
+    if session is None:
+        raise CliError("not logged in. Run bluethroat auth login.", AUTH)
+    auth = _github(http, **kwargs)
+    session = auth.ensure(session)
+    store.save(session)
+
+    source = Path(args.source).expanduser()
+    output = Path(args.output).expanduser() if args.output else default_output(source)
+    if source.resolve() == output.resolve():
+        raise CliError("The output path must be different from the source document.", INVALID)
+    check_output(output, force=args.force)
+    result = BluePaperClient(
+        http,
+        Config.load().bluepaper_api_url,
+        session,
+        sleep=kwargs.get("sleep"),  # type: ignore[arg-type]
+        clock=kwargs.get("clock"),  # type: ignore[arg-type]
+    ).convert(source, ocr_lang=args.ocr_lang)
+
+    written: Path | None = None
+    if result.pdf is not None:
+        write_pdf(output, result.pdf, force=args.force)
+        written = output
+    if args.json:
+        json.dump(result.document(written), sys.stdout, indent=2)
+        sys.stdout.write("\n")
+    else:
+        print(render_bluepaper(result, written))
+
+    if str(result.conversion.get("status") or "") != "succeeded":
+        return SERVICE
+    hits = result.report.get("hits", []) if result.report is not None else []
+    return SUSPICIOUS if isinstance(hits, list) and hits else CLEAN
 
 
 def _check_ref(ref: str | None, served: str) -> None:
