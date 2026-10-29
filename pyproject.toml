@@ -1,6 +1,6 @@
 [project]
 name = "bluethroat"
-version = "0.1.2"
+version = "0.1.3"
 description = "Command-line client for BlueSkills, BlueGate, and BluePaper"
 readme = "README.md"
 authors = [
