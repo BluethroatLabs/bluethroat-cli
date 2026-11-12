@@ -1,7 +1,8 @@
 # bluethroat
 
-Command-line client for BlueSkills, BlueGate, BluePaper, and local BlueExif metadata tools.
-Log in once with the Bluethroat GitHub App for hosted tools; BlueExif runs locally and needs no account.
+Command-line client for BlueSkills, BlueGate, BluePaper, and local BlueExif and BlueMask tools.
+Log in once with the Bluethroat GitHub App for hosted tools; BlueExif and BlueMask run
+locally and need no account.
 
 ```bash
 uv tool install bluethroat
@@ -11,6 +12,7 @@ bluethroat clone https://github.com/owner/repository --ref <commit>
 bluethroat bluegate scan https://github.com/owner/repository --ref <commit>
 bluethroat bluepaper convert suspicious.docx
 bluethroat blueexif scan photo.jpg
+bluethroat bluemask blur screenshot.png 40,20 180,70
 ```
 
 `clone` and `bluegate scan` are the same BlueGate scan. Neither runs git. The text report ends with a clone command pinned to the scanned commit. `--json` prints the scan document from either product. On the BlueGate commands, `--agent` prints the fenced agent report. Without a format flag, the command prints text.
@@ -46,6 +48,30 @@ AIFF tags through Mutagen; PDF Info/XMP; SVG; and metadata XML in OOXML, OpenDoc
 and EPUB packages. Other image and media formats may be scan-only. This backend does
 not reproduce every writer or hidden-data rule in the browser BlueExif engine; an
 unsupported or unsafe mutation fails instead of remuxing or re-encoding the file.
+
+## BlueMask
+
+BlueMask replaces a rectangular image region with an opaque neutral mask by default:
+
+```bash
+bluethroat bluemask blur screenshot.png 40,20 180,70
+```
+
+Coordinates are `X,Y` corners in displayed-image pixels. `(0,0)` is the top-left, X
+increases rightward, Y increases downward, and the rectangle's right and bottom edges
+are exclusive. Either corner order is accepted.
+
+Pass `--cosmetic` for appearance-only Gaussian blur. Cosmetic blur can leave details
+recoverable and is not secure redaction:
+
+```bash
+bluethroat bluemask blur photo.jpg 120,80 360,300 --cosmetic -o photo-blurred.png
+```
+
+The command accepts PNG, JPEG, and WebP locally, applies EXIF orientation, flattens
+transparency onto white, and writes a fresh metadata-free PNG. The default output is
+`<source stem>-bluemask.png`. Existing files and symlinks are refused unless an existing
+regular output is explicitly replaced with `--force`.
 
 ## Configuration
 

@@ -20,6 +20,7 @@ from bluethroat.blueexif import (
     scan_file as blueexif_scan_file,
 )
 from bluethroat.bluegate import BlueGateClient
+from bluethroat.bluemask import mask_file as bluemask_mask_file
 from bluethroat.bluepaper import (
     BluePaperClient,
     check_output,
@@ -76,7 +77,7 @@ def main(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bluethroat",
-        description="Use BlueSkills, BlueGate, BluePaper, and BlueExif from one CLI.",
+        description="Use Bluethroat security and privacy tools from one CLI.",
     )
     parser.add_argument("--version", action="version", version=f"bluethroat {__version__}")
     commands = parser.add_subparsers(dest="command")
@@ -193,6 +194,42 @@ def _parser() -> argparse.ArgumentParser:
     _add_blueexif_output(remove)
     remove.set_defaults(handler=_blueexif_remove)
     blueexif.set_defaults(handler=_blueexif_help)
+
+    bluemask = commands.add_parser("bluemask", help="Mask part of a local image.")
+    bluemask_commands = bluemask.add_subparsers(dest="bluemask_command")
+    blur = bluemask_commands.add_parser(
+        "blur",
+        help="Securely mask a rectangle, or apply appearance-only Gaussian blur.",
+        description=(
+            "Mask the rectangle between two X,Y corners. Coordinates use displayed-image "
+            "pixels: 0,0 is the top-left, X grows right, Y grows down, and the rectangle's "
+            "right and bottom edges are exclusive."
+        ),
+    )
+    blur.add_argument("source", help="PNG, JPEG, or WebP image to process locally.")
+    blur.add_argument("first", metavar="X1,Y1", help="One corner of the rectangle.")
+    blur.add_argument(
+        "second",
+        metavar="X2,Y2",
+        help="The opposite corner; right and bottom edges are exclusive.",
+    )
+    blur.add_argument(
+        "--cosmetic",
+        action="store_true",
+        help="Use appearance-only Gaussian blur instead of the secure solid mask.",
+    )
+    blur.add_argument(
+        "-o",
+        "--output",
+        help="Output PNG path. Defaults to <source stem>-bluemask.png.",
+    )
+    blur.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace an existing output file (never follows symlinks).",
+    )
+    blur.set_defaults(handler=_bluemask_blur)
+    bluemask.set_defaults(handler=_bluemask_help)
     return parser
 
 
@@ -256,6 +293,15 @@ def _bluepaper_help(_args: argparse.Namespace, **_kwargs: object) -> int:
 
 def _blueexif_help(_args: argparse.Namespace, **_kwargs: object) -> int:
     print("usage: bluethroat blueexif {scan,replace,remove} ...", file=sys.stderr)
+    return INVALID
+
+
+def _bluemask_help(_args: argparse.Namespace, **_kwargs: object) -> int:
+    print(
+        "usage: bluethroat bluemask blur <image> <X1,Y1> <X2,Y2> "
+        "[-o OUTPUT.png] [--cosmetic] [--force]",
+        file=sys.stderr,
+    )
     return INVALID
 
 
@@ -446,6 +492,21 @@ def _blueexif_remove(args: argparse.Namespace, **_kwargs: object) -> int:
     )
     print(f"Wrote: {output}")
     print(render_blueexif(document, file_name=output.name))
+    return CLEAN
+
+
+def _bluemask_blur(args: argparse.Namespace, **_kwargs: object) -> int:
+    output = bluemask_mask_file(
+        args.source,
+        args.first,
+        args.second,
+        cosmetic=args.cosmetic,
+        output=args.output,
+        force=args.force,
+    )
+    method = "cosmetic Gaussian blur (appearance only)" if args.cosmetic else "secure solid mask"
+    print(f"Wrote: {output}")
+    print(f"Method: {method}")
     return CLEAN
 
 
