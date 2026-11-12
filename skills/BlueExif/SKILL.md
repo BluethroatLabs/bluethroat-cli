@@ -8,6 +8,14 @@ description: Inspects, replaces, and removes local file metadata with `bluethroa
 Use `bluethroat blueexif` for local metadata work. It does not require login and does not
 upload files.
 
+## Install
+
+```bash
+uv tool install bluethroat
+```
+
+Confirm the command is available with `bluethroat --version`.
+
 ## Workflow
 
 1. Scan before changing anything:

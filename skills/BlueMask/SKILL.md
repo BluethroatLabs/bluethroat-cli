@@ -8,6 +8,14 @@ description: Masks rectangular regions in local PNG, JPEG, and WebP images with 
 Use `bluethroat bluemask blur` to process an image locally. It does not require login
 and always writes a fresh, opaque PNG without source metadata.
 
+## Install
+
+```bash
+uv tool install bluethroat
+```
+
+Confirm the command is available with `bluethroat --version`.
+
 ## Coordinates
 
 Pass the source image and two `X,Y` corner coordinates:
