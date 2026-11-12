@@ -12,6 +12,13 @@ import httpx
 
 from bluethroat import __version__
 from bluethroat.api import BlueSkillsClient
+from bluethroat.blueexif import (
+    json_safe as blueexif_json_safe,
+    remove_file as blueexif_remove_file,
+    render as render_blueexif,
+    replace_file as blueexif_replace_file,
+    scan_file as blueexif_scan_file,
+)
 from bluethroat.bluegate import BlueGateClient
 from bluethroat.bluepaper import (
     BluePaperClient,
@@ -69,7 +76,7 @@ def main(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bluethroat",
-        description="Use BlueSkills, BlueGate, and BluePaper from one authenticated CLI.",
+        description="Use BlueSkills, BlueGate, BluePaper, and BlueExif from one CLI.",
     )
     parser.add_argument("--version", action="version", version=f"bluethroat {__version__}")
     commands = parser.add_subparsers(dest="command")
@@ -142,6 +149,50 @@ def _parser() -> argparse.ArgumentParser:
     )
     convert.set_defaults(handler=_bluepaper_convert)
     bluepaper.set_defaults(handler=_bluepaper_help)
+
+    blueexif = commands.add_parser("blueexif", help="Inspect and edit local file metadata.")
+    blueexif_commands = blueexif.add_subparsers(dest="blueexif_command")
+    exif_scan = blueexif_commands.add_parser(
+        "scan",
+        help="Scan a local file and print its metadata.",
+    )
+    exif_scan.add_argument("source", help="File to inspect.")
+    exif_scan.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the BlueExif metadata document as JSON.",
+    )
+    exif_scan.set_defaults(handler=_blueexif_scan)
+
+    replace = blueexif_commands.add_parser(
+        "replace",
+        help="Replace metadata fields and write a safe copy.",
+    )
+    replace.add_argument("source", help="File whose metadata should be changed.")
+    replace.add_argument(
+        "replacements",
+        nargs="+",
+        metavar="FIELD=JSON",
+        help='Field assignment from scan output, for example \'pdf:Author="Anonymous"\'.',
+    )
+    _add_blueexif_output(replace)
+    replace.set_defaults(handler=_blueexif_replace)
+
+    remove = blueexif_commands.add_parser(
+        "remove",
+        help="Remove selected metadata fields or strip all metadata.",
+    )
+    remove.add_argument("source", help="File whose metadata should be removed.")
+    remove.add_argument("fields", nargs="*", metavar="FIELD", help="Field ids from scan output.")
+    remove.add_argument(
+        "--all",
+        action="store_true",
+        dest="remove_all",
+        help="Strip all nonessential metadata while preserving orientation and colour profiles.",
+    )
+    _add_blueexif_output(remove)
+    remove.set_defaults(handler=_blueexif_remove)
+    blueexif.set_defaults(handler=_blueexif_help)
     return parser
 
 
@@ -166,6 +217,19 @@ def _add_bluegate_scan(commands: argparse._SubParsersAction, name: str, *, help:
     scan.set_defaults(handler=_bluegate_scan)
 
 
+def _add_blueexif_output(command: argparse.ArgumentParser) -> None:
+    command.add_argument(
+        "-o",
+        "--output",
+        help="Output path. Defaults to <source stem>-blueexif<source suffix>.",
+    )
+    command.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace an existing output file (never follows symlinks).",
+    )
+
+
 def _auth_help(_args: argparse.Namespace, **_kwargs: object) -> int:
     print("usage: bluethroat auth {login,status,logout}", file=sys.stderr)
     return INVALID
@@ -187,6 +251,11 @@ def _bluepaper_help(_args: argparse.Namespace, **_kwargs: object) -> int:
         "[-o OUTPUT] [--ocr-lang LANG] [--force] [--json]",
         file=sys.stderr,
     )
+    return INVALID
+
+
+def _blueexif_help(_args: argparse.Namespace, **_kwargs: object) -> int:
+    print("usage: bluethroat blueexif {scan,replace,remove} ...", file=sys.stderr)
     return INVALID
 
 
@@ -343,6 +412,41 @@ def _bluepaper_convert(
         return SERVICE
     hits = result.report.get("hits", []) if result.report is not None else []
     return SUSPICIOUS if isinstance(hits, list) and hits else CLEAN
+
+
+def _blueexif_scan(args: argparse.Namespace, **_kwargs: object) -> int:
+    source, document = blueexif_scan_file(args.source)
+    if args.json:
+        json.dump(blueexif_json_safe(document), sys.stdout, indent=2, ensure_ascii=False)
+        sys.stdout.write("\n")
+    else:
+        print(render_blueexif(document, file_name=source.name))
+    return CLEAN
+
+
+def _blueexif_replace(args: argparse.Namespace, **_kwargs: object) -> int:
+    output, document = blueexif_replace_file(
+        args.source,
+        args.replacements,
+        output=args.output,
+        force=args.force,
+    )
+    print(f"Wrote: {output}")
+    print(render_blueexif(document, file_name=output.name))
+    return CLEAN
+
+
+def _blueexif_remove(args: argparse.Namespace, **_kwargs: object) -> int:
+    output, document = blueexif_remove_file(
+        args.source,
+        args.fields,
+        remove_all=args.remove_all,
+        output=args.output,
+        force=args.force,
+    )
+    print(f"Wrote: {output}")
+    print(render_blueexif(document, file_name=output.name))
+    return CLEAN
 
 
 def _check_ref(ref: str | None, served: str) -> None:

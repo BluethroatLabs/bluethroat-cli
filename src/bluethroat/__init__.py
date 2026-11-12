@@ -1,3 +1,3 @@
-"""Command-line client for BlueSkills and BlueGate."""
+"""Command-line client for Bluethroat Labs tools."""
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"

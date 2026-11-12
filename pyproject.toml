@@ -1,7 +1,7 @@
 [project]
 name = "bluethroat"
-version = "0.1.3"
-description = "Command-line client for BlueSkills, BlueGate, and BluePaper"
+version = "0.1.4"
+description = "Command-line client for BlueSkills, BlueGate, BluePaper, and BlueExif"
 readme = "README.md"
 authors = [
     { name = "iamwehi", email = "iamwehi@proton.me" }
@@ -10,6 +10,12 @@ requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28",
     "keyring>=25",
+    "lxml>=6.1.3",
+    "mutagen>=1.48.1",
+    "piexif>=1.1.3",
+    "pikepdf>=10.18.0",
+    "pillow>=13.0.0",
+    "pymediainfo>=7.0.1",
 ]
 
 [dependency-groups]
