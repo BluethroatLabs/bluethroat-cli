@@ -9,7 +9,7 @@ from pathlib import Path
 
 # Front Door in front of the API. blueskills.bluethroatlabs.com is the website
 # (Vercel) and answers POST /scan.json with an HTML 404.
-DEFAULT_API_URL = "https://blueskills-web-hzdtf5buftehbya8.z03.azurefd.net"
+DEFAULT_API_URL = "https://blueskills-api-shared-ddghgbhxd7evbkfn.z03.azurefd.net"
 # BlueGate serves the site and the API from one origin, so this is both.
 DEFAULT_BLUEGATE_API_URL = "https://bluegate.bluethroatlabs.com"
 # BluePaper likewise serves its public site and conversion API from one origin.
