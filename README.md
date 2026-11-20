@@ -79,7 +79,7 @@ regular output is explicitly replaced with `--force`.
 | --- | --- |
 | `BLUETHROAT_GITHUB_CLIENT_ID` | GitHub App client ID. Defaults to the Bluethroat app (`Iv23liH0YU6oTHHz0i8O`). |
 | `BLUETHROAT_GITHUB_CLIENT_SECRET` | Optional, for development only. Revokes directly at GitHub instead of through BlueSkills. Do not put this in the distributed client. |
-| `BLUETHROAT_API_URL` | BlueSkills API origin. Defaults to `https://blueskills-web-hzdtf5buftehbya8.z03.azurefd.net`. |
+| `BLUETHROAT_API_URL` | BlueSkills API origin. Defaults to `https://blueskills-api-shared-ddghgbhxd7evbkfn.z03.azurefd.net`. |
 | `BLUETHROAT_BLUEGATE_API_URL` | BlueGate API origin. Defaults to `https://bluegate.bluethroatlabs.com`. |
 | `BLUETHROAT_BLUEPAPER_API_URL` | BluePaper API origin. Defaults to `https://bluepaper.bluethroatlabs.com`. |
 

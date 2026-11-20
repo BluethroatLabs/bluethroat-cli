@@ -24,7 +24,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from bluethroat.api import _public, _raise_for_status
+from bluethroat.api import _merge_scan_documents, _public, _raise_for_status
 from bluethroat.credentials import Session
 from bluethroat.errors import AUTH, INVALID, SERVICE, CliError
 
@@ -66,7 +66,7 @@ class BlueGateClient:
         scan_id = str(doc.get("scan_id") or "")
         if not _SCAN_ID.fullmatch(scan_id):
             raise CliError("The scan did not return an id to wait on.", SERVICE)
-        return self._wait(scan_id)
+        return _merge_scan_documents(doc, self._wait(scan_id))
 
     def report(self, scan_id: str, *, fmt: str) -> str:
         """The server-rendered report. ``fmt`` is ``text`` or ``agent``."""

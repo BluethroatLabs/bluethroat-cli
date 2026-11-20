@@ -112,6 +112,7 @@ def test_cancelled_login(monkeypatch):
 def test_scan_waits_and_sends_github_token(monkeypatch, capsys):
     monkeypatch.setenv("BLUETHROAT_GITHUB_CLIENT_ID", "Iv1.test")
     monkeypatch.setenv("BLUETHROAT_API_URL", "https://scanner.example")
+    ref = "ab" * 20
     polls = {"n": 0}
     seen: dict[str, str] = {}
 
@@ -124,7 +125,8 @@ def test_scan_waits_and_sends_github_token(monkeypatch, capsys):
                 "scan_id": "abc123",
                 "status": "queued_deep",
                 "worst_verdict": "clean",
-                "source": "https://github.com/owner/repository/tree/main",
+                "source": f"https://github.com/owner/repository/tree/{ref}",
+                "commit": ref[:7],
             })
         polls["n"] += 1
         if polls["n"] == 1:
@@ -135,8 +137,7 @@ def test_scan_waits_and_sends_github_token(monkeypatch, capsys):
             "complete": True,
             "verdict": "malicious",
             "score": 86,
-            "source": "https://github.com/owner/repository/tree/main",
-            "commit": "abc1234def",
+            "source": f"https://github.com/owner/repository/tree/{ref}",
             "reports": [{
                 "skill_name": "demo",
                 "verdict": "malicious",
@@ -157,7 +158,7 @@ def test_scan_waits_and_sends_github_token(monkeypatch, capsys):
     store = MemoryStore()
     store.save(_session())
     code = main(
-        ["blueskills", "scan", "https://github.com/owner/repository", "--ref", "main"],
+        ["blueskills", "scan", "https://github.com/owner/repository", "--ref", ref],
         store=store,
         client=httpx.Client(transport=httpx.MockTransport(handler)),
         sleep=lambda _seconds: None,
@@ -166,9 +167,10 @@ def test_scan_waits_and_sends_github_token(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert code == 2
     assert seen["authorization"] == "Bearer ghu_test"
-    assert seen["repo_url"] == "https://github.com/owner/repository/tree/main"
+    assert seen["repo_url"] == f"https://github.com/owner/repository/tree/{ref}"
     assert polls["n"] == 2
     assert "MALICIOUS" in captured.out
+    assert ref[:7] in captured.out
     assert "Credential file reaches a network sink" in captured.out
     assert "Waiting for the report" in captured.err
 

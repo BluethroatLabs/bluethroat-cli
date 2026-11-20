@@ -100,6 +100,32 @@ def test_clone_and_bluegate_scan_wait_and_print_the_report(monkeypatch, capsys, 
     assert "Waiting for the report" in captured.err
 
 
+def test_queued_scan_keeps_the_resolved_commit(monkeypatch):
+    _env(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(202, json={
+                "scan_id": _SCAN,
+                "status": "queued",
+                "commit": _SHA[:7],
+            })
+        if request.url.params.get("format") == "text":
+            return httpx.Response(200, text="BlueGate MALICIOUS owner/repository\n")
+        return httpx.Response(200, json=_done(input={"repo": "owner/repository"}))
+
+    store = MemoryStore()
+    store.save(_session())
+    code = main(
+        ["clone", "owner/repository", "--ref", _SHA],
+        store=store,
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+        sleep=lambda _seconds: None,
+        clock=lambda: 0.0,
+    )
+    assert code == 2
+
+
 def test_json_prints_the_document_without_fetching_text(monkeypatch, capsys):
     _env(monkeypatch)
 

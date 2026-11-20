@@ -66,7 +66,7 @@ class BlueSkillsClient:
         scan_id = str(doc.get("scan_id") or "")
         if not scan_id:
             raise CliError("The scan did not return an id to wait on.", SERVICE)
-        return self._wait(scan_id)
+        return _merge_scan_documents(doc, self._wait(scan_id))
 
     def revoke(self) -> None:
         """Ask BlueSkills to revoke the session's access token at GitHub."""
@@ -119,6 +119,22 @@ class BlueSkillsClient:
 
 def _public(doc: dict) -> dict:
     return {key: value for key, value in doc.items() if not str(key).startswith("_")}
+
+
+def _merge_scan_documents(submitted: dict, polled: dict) -> dict:
+    """Keep admission metadata that a terminal polling document may omit."""
+    submitted_input = submitted.get("input")
+    polled_input = polled.get("input")
+    merged = _public(polled)
+    for key in ("scan_id", "commit", "source", "repo", "ref"):
+        if key not in merged and key in submitted:
+            merged[key] = submitted[key]
+    if isinstance(submitted_input, dict) or isinstance(polled_input, dict):
+        merged["input"] = (
+            (submitted_input if isinstance(submitted_input, dict) else {})
+            | (polled_input if isinstance(polled_input, dict) else {})
+        )
+    return merged
 
 
 def _finished(code: int, doc: dict) -> bool:
