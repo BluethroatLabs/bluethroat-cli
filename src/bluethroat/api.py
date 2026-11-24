@@ -152,7 +152,8 @@ def _raise_for_status(code: int, doc: dict, *, service: str = "BlueSkills") -> N
         if retry is None:
             retry = doc.get("_retry_after") or "1"
         raise CliError(
-            f"rate limited, retry after {retry}s",
+            f"rate limited, retry after {retry}s; contact us at "
+            "t.me/saxenism or saxenism@bluethroatlabs.com",
             RATE_LIMITED,
             body={"error": str(doc.get("error") or "Not right now"), "retry_after": _int(retry)},
         )

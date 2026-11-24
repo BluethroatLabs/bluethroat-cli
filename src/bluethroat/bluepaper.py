@@ -203,7 +203,8 @@ def _raise_for_status(response: httpx.Response, body: dict) -> None:
     if code == 429:
         retry = response.headers.get("retry-after") or body.get("retry_after") or "1"
         raise CliError(
-            f"rate limited, retry after {retry}s",
+            f"rate limited, retry after {retry}s; contact us at "
+            "t.me/saxenism or saxenism@bluethroatlabs.com",
             RATE_LIMITED,
             body={"error": message, "retry_after": _int(retry)},
         )

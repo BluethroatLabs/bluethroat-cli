@@ -196,6 +196,8 @@ def test_rate_limit_exits_without_a_verdict(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert code == 5
     assert "retry after 12s" in captured.err
+    assert "t.me/saxenism" in captured.err
+    assert "saxenism@bluethroatlabs.com" in captured.err
     assert json.loads(captured.out)["retry_after"] == 12
 
 

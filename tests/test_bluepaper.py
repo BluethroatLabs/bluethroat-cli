@@ -224,6 +224,8 @@ def test_rate_limit_is_reported_as_json(monkeypatch, tmp_path, capsys):
     captured = capsys.readouterr()
     assert code == 5
     assert "retry after 12s" in captured.err
+    assert "t.me/saxenism" in captured.err
+    assert "saxenism@bluethroatlabs.com" in captured.err
     assert json.loads(captured.out) == {
         "error": "concurrency limit",
         "retry_after": 12,
