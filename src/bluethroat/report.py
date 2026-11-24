@@ -101,7 +101,8 @@ def _headline_score(doc: dict, units: list[dict], verdict: str) -> int | None:
     scores = [
         int(unit["risk_score"])
         for unit in units
-        if str(unit.get("verdict") or "").lower() == verdict and isinstance(unit.get("risk_score"), int)
+        if str(unit.get("verdict") or "").lower() == verdict
+        and isinstance(unit.get("risk_score"), int)
     ]
     if scores:
         return max(scores)
@@ -136,7 +137,9 @@ def _unit_body(unit: dict, *, header: bool) -> list[str]:
     stats = unit.get("stats") if isinstance(unit.get("stats"), dict) else {}
     if stats.get("incomplete") or unit.get("complete") is False:
         missing = stats.get("missing_layers")
-        detail = ", ".join(missing) if isinstance(missing, list) and missing else "a detection layer"
+        detail = (
+            ", ".join(missing) if isinstance(missing, list) and missing else "a detection layer"
+        )
         lines.append(f"  ⚠ INCOMPLETE SCAN — {_plain(detail)} did not run")
     layers = unit.get("layers_run")
     if isinstance(layers, list) and layers:

@@ -156,10 +156,12 @@ def coerce_for_field(spec: dict[str, Any], value: FieldValue) -> FieldValue:
         if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
             raise CliError(f"{field_id} requires an array of strings.", INVALID)
     elif kind == "gps":
-        if not isinstance(value, dict) or not isinstance(value.get("lat"), (int, float)) or not isinstance(
-            value.get("lon"), (int, float)
+        if (
+            not isinstance(value, dict)
+            or not isinstance(value.get("lat"), (int, float))
+            or not isinstance(value.get("lon"), (int, float))
         ):
-            raise CliError(f"{field_id} requires {{\"lat\": number, \"lon\": number}}.", INVALID)
+            raise CliError(f'{field_id} requires {{"lat": number, "lon": number}}.', INVALID)
         if abs(float(value["lat"])) > 90 or abs(float(value["lon"])) > 180:
             raise CliError(f"{field_id} contains invalid GPS coordinates.", INVALID)
     elif kind in {"image", "raw"}:

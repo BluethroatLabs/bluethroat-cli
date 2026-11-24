@@ -121,6 +121,7 @@ def _keyring_set(encoded: str) -> bool:
 def _keyring_delete() -> None:
     try:
         import keyring
+
         keyring.delete_password(_SERVICE, _ACCOUNT)
     except Exception:
         return

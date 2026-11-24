@@ -62,7 +62,9 @@ def remove_file(
         if fields:
             raise CliError("Do not combine field ids with --all.", INVALID)
         if not document.get("canStrip"):
-            raise CliError(f"{path.name} cannot be stripped by the Python BlueExif backend.", INVALID)
+            raise CliError(
+                f"{path.name} cannot be stripped by the Python BlueExif backend.", INVALID
+            )
         edits: dict[str, Edit] = {}
     else:
         if not fields:
@@ -121,7 +123,9 @@ def _mutate(
     except CliError:
         raise
     except OSError as exc:
-        raise CliError(f"Could not write {destination} ({exc.__class__.__name__}).", INVALID) from exc
+        raise CliError(
+            f"Could not write {destination} ({exc.__class__.__name__}).", INVALID
+        ) from exc
     finally:
         try:
             temporary.unlink()

@@ -14,9 +14,17 @@ from bluethroat import __version__
 from bluethroat.api import BlueSkillsClient
 from bluethroat.blueexif import (
     json_safe as blueexif_json_safe,
+)
+from bluethroat.blueexif import (
     remove_file as blueexif_remove_file,
+)
+from bluethroat.blueexif import (
     render as render_blueexif,
+)
+from bluethroat.blueexif import (
     replace_file as blueexif_replace_file,
+)
+from bluethroat.blueexif import (
     scan_file as blueexif_scan_file,
 )
 from bluethroat.bluegate import BlueGateClient
@@ -25,8 +33,10 @@ from bluethroat.bluepaper import (
     BluePaperClient,
     check_output,
     default_output,
-    render as render_bluepaper,
     write_pdf,
+)
+from bluethroat.bluepaper import (
+    render as render_bluepaper,
 )
 from bluethroat.config import Config
 from bluethroat.credentials import CredentialStore, SessionStore
@@ -84,7 +94,9 @@ def _parser() -> argparse.ArgumentParser:
 
     auth = commands.add_parser("auth", help="Log in with the Bluethroat GitHub App.")
     auth_commands = auth.add_subparsers(dest="auth_command")
-    login = auth_commands.add_parser("login", help="Authorize this client once via GitHub device flow.")
+    login = auth_commands.add_parser(
+        "login", help="Authorize this client once via GitHub device flow."
+    )
     login.set_defaults(handler=_login)
     status = auth_commands.add_parser("status", help="Show the logged-in GitHub account.")
     status.set_defaults(handler=_status)
@@ -174,7 +186,7 @@ def _parser() -> argparse.ArgumentParser:
         "replacements",
         nargs="+",
         metavar="FIELD=JSON",
-        help='Field assignment from scan output, for example \'pdf:Author="Anonymous"\'.',
+        help="Field assignment from scan output, for example 'pdf:Author=\"Anonymous\"'.",
     )
     _add_blueexif_output(replace)
     replace.set_defaults(handler=_blueexif_replace)
@@ -317,14 +329,18 @@ def _github(http: httpx.Client, **kwargs: object) -> GitHubAuth:
     )
 
 
-def _login(_args: argparse.Namespace, *, store: SessionStore, http: httpx.Client, **kwargs: object) -> int:
+def _login(
+    _args: argparse.Namespace, *, store: SessionStore, http: httpx.Client, **kwargs: object
+) -> int:
     session = _github(http, **kwargs).login()
     store.save(session)
     print(f"logged in as {session.login}")
     return 0
 
 
-def _status(_args: argparse.Namespace, *, store: SessionStore, http: httpx.Client, **kwargs: object) -> int:
+def _status(
+    _args: argparse.Namespace, *, store: SessionStore, http: httpx.Client, **kwargs: object
+) -> int:
     session = store.load()
     if session is None:
         raise CliError("not logged in", AUTH)
@@ -334,7 +350,9 @@ def _status(_args: argparse.Namespace, *, store: SessionStore, http: httpx.Clien
     return 0
 
 
-def _logout(_args: argparse.Namespace, *, store: SessionStore, http: httpx.Client, **kwargs: object) -> int:
+def _logout(
+    _args: argparse.Namespace, *, store: SessionStore, http: httpx.Client, **kwargs: object
+) -> int:
     session = store.load()
     store.clear()
     if session is None:

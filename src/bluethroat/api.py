@@ -107,7 +107,9 @@ class BlueSkillsClient:
         try:
             response = self._http.request(method, f"{self._api}{path}", headers=headers, **kwargs)
         except httpx.HTTPError as exc:
-            raise CliError(f"Could not reach BlueSkills ({exc.__class__.__name__}).", SERVICE) from exc
+            raise CliError(
+                f"Could not reach BlueSkills ({exc.__class__.__name__}).", SERVICE
+            ) from exc
         try:
             body = response.json()
         except ValueError:
@@ -130,9 +132,8 @@ def _merge_scan_documents(submitted: dict, polled: dict) -> dict:
         if key not in merged and key in submitted:
             merged[key] = submitted[key]
     if isinstance(submitted_input, dict) or isinstance(polled_input, dict):
-        merged["input"] = (
-            (submitted_input if isinstance(submitted_input, dict) else {})
-            | (polled_input if isinstance(polled_input, dict) else {})
+        merged["input"] = (submitted_input if isinstance(submitted_input, dict) else {}) | (
+            polled_input if isinstance(polled_input, dict) else {}
         )
     return merged
 

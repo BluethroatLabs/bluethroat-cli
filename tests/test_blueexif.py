@@ -53,11 +53,7 @@ def _docx(path: Path) -> Path:
 
 
 def _fields(document: dict) -> dict[str, dict]:
-    return {
-        item["id"]: item
-        for container in document["groups"]
-        for item in container["fields"]
-    }
+    return {item["id"]: item for container in document["groups"] for item in container["fields"]}
 
 
 def test_scan_prints_blueexif_schema(tmp_path: Path, capsys) -> None:

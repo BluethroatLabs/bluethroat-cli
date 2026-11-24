@@ -10,7 +10,6 @@ from PIL import Image, ImageDraw, ImageFilter, ImageOps, UnidentifiedImageError
 
 from bluethroat.errors import INVALID, CliError
 
-
 FILL = (110, 113, 118)
 COSMETIC_RADIUS = 10
 MAX_FILE_BYTES = 35 * 1024 * 1024
@@ -152,7 +151,9 @@ def _write_png(image: Image.Image, destination: Path) -> None:
     except CliError:
         raise
     except OSError as exc:
-        raise CliError(f"Could not write {destination} ({exc.__class__.__name__}).", INVALID) from exc
+        raise CliError(
+            f"Could not write {destination} ({exc.__class__.__name__}).", INVALID
+        ) from exc
     finally:
         try:
             temporary.unlink()

@@ -173,7 +173,10 @@ class ImageBackend(Backend):
                 if getattr(image, "n_frames", 1) > 1:
                     technical.append(info("Frames", image.n_frames))
                 format_name = image.format or _extension(path).lstrip(".").upper()
-                mime = Image.MIME.get(image.format or "", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
+                mime = Image.MIME.get(
+                    image.format or "",
+                    mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+                )
         except Exception as exc:
             format_name = _extension(path).lstrip(".").upper() or "image"
             mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
@@ -194,13 +197,22 @@ class ImageBackend(Backend):
                         spec["value"],
                         tag=spec["tag"],
                         sensitivity=_sensitivity(spec["label"]),
-                        editable=_extension(path) in {".jpg", ".jpeg", ".jpe", ".jfif"} and spec["editable"],
+                        editable=_extension(path) in {".jpg", ".jpeg", ".jpe", ".jfif"}
+                        and spec["editable"],
                         removable=_extension(path) in {".jpg", ".jpeg", ".jpe", ".jfif"},
                         display=spec.get("display"),
                     )
                 )
             if items:
-                groups.append(group(f"exif:{field_ifd}", f"{label} metadata", items, source="EXIF", removable=True))
+                groups.append(
+                    group(
+                        f"exif:{field_ifd}",
+                        f"{label} metadata",
+                        items,
+                        source="EXIF",
+                        removable=True,
+                    )
+                )
 
         ext = _extension(path)
         writable = ext in {".jpg", ".jpeg", ".jpe", ".jfif"}
@@ -306,7 +318,11 @@ class AudioBackend(Backend):
                         display=display,
                     )
                 )
-        groups = [group(prefix, source_name, fields, source=source_name, removable=True)] if fields else []
+        groups = (
+            [group(prefix, source_name, fields, source=source_name, removable=True)]
+            if fields
+            else []
+        )
         format_name = type(audio).__name__.replace("File", "")
         mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         return metadata(
@@ -399,16 +415,28 @@ class PdfBackend(Backend):
                 except Exception as exc:
                     warnings.append(f"XMP could not be read: {exc}")
         except pikepdf.PasswordError as exc:
-            raise CliError("This PDF requires a password; password input is not supported.", INVALID) from exc
+            raise CliError(
+                "This PDF requires a password; password input is not supported.", INVALID
+            ) from exc
         except pikepdf.PdfError as exc:
             raise CliError(f"Could not read PDF metadata: {exc}", INVALID) from exc
         groups: list[dict[str, Any]] = []
         pdf_fields = [item for item in fields if item["id"].startswith("pdf:")]
         xmp_fields = [item for item in fields if item["id"].startswith("xmp:")]
         if pdf_fields:
-            groups.append(group("pdf:info", "PDF document information", pdf_fields, source="PDF Info", removable=True))
+            groups.append(
+                group(
+                    "pdf:info",
+                    "PDF document information",
+                    pdf_fields,
+                    source="PDF Info",
+                    removable=True,
+                )
+            )
         if xmp_fields:
-            groups.append(group("pdf:xmp", "XMP metadata", xmp_fields, source="XMP", removable=True))
+            groups.append(
+                group("pdf:xmp", "XMP metadata", xmp_fields, source="XMP", removable=True)
+            )
         return metadata(
             "pdf",
             "PDF document",
@@ -513,7 +541,19 @@ class ZipXmlBackend(Backend):
         except (zipfile.BadZipFile, OSError) as exc:
             raise CliError(f"Could not read {self.kind.upper()} package: {exc}", INVALID) from exc
         label = {"ooxml": "Office Open XML", "odf": "OpenDocument", "epub": "EPUB"}[self.kind]
-        groups = [group(f"{self.kind}:metadata", f"{label} metadata", fields, source=label, removable=True)] if fields else []
+        groups = (
+            [
+                group(
+                    f"{self.kind}:metadata",
+                    f"{label} metadata",
+                    fields,
+                    source=label,
+                    removable=True,
+                )
+            ]
+            if fields
+            else []
+        )
         return metadata(
             self.kind,
             f"{label} document",
@@ -579,12 +619,18 @@ class ZipXmlBackend(Backend):
                 if strip_all:
                     outgoing.comment = b""
         except (zipfile.BadZipFile, OSError, ValueError) as exc:
-            raise CliError(f"Could not rewrite {self.kind.upper()} metadata: {exc}", INVALID) from exc
+            raise CliError(
+                f"Could not rewrite {self.kind.upper()} metadata: {exc}", INVALID
+            ) from exc
 
     def _metadata_members(self, archive: zipfile.ZipFile) -> list[str]:
         names = set(archive.namelist())
         if self.kind == "ooxml":
-            return [name for name in ("docProps/core.xml", "docProps/app.xml", "docProps/custom.xml") if name in names]
+            return [
+                name
+                for name in ("docProps/core.xml", "docProps/app.xml", "docProps/custom.xml")
+                if name in names
+            ]
         if self.kind == "odf":
             return ["meta.xml"] if "meta.xml" in names else []
         container = "META-INF/container.xml"
@@ -611,7 +657,13 @@ class ZipXmlBackend(Backend):
                 continue
             local = _local_name(element.tag)
             if self.kind == "ooxml":
-                part = "core" if member.endswith("core.xml") else "app" if member.endswith("app.xml") else "custom"
+                part = (
+                    "core"
+                    if member.endswith("core.xml")
+                    else "app"
+                    if member.endswith("app.xml")
+                    else "custom"
+                )
                 prefix = _prefix(element.tag)
                 base = f"ooxml:{part}:{prefix}:{local}"
             elif self.kind == "odf":
@@ -629,7 +681,10 @@ class ZipXmlBackend(Backend):
 
     @staticmethod
     def _required_epub(field_id: str) -> bool:
-        return field_id.startswith(("epub:dc:title", "epub:dc:language", "epub:dc:identifier")) or "dcterms:modified" in field_id
+        return (
+            field_id.startswith(("epub:dc:title", "epub:dc:language", "epub:dc:identifier"))
+            or "dcterms:modified" in field_id
+        )
 
 
 class SvgBackend(Backend):
@@ -646,7 +701,9 @@ class SvgBackend(Backend):
             raise CliError(f"Could not read SVG metadata: {exc}", INVALID) from exc
         fields: list[dict[str, Any]] = []
         counts: dict[str, int] = {}
-        for element in root.xpath("//*[local-name()='title' or local-name()='desc' or local-name()='metadata']"):
+        for element in root.xpath(
+            "//*[local-name()='title' or local-name()='desc' or local-name()='metadata']"
+        ):
             local = _local_name(element.tag)
             index = counts.get(local, 0)
             counts[local] = index + 1
@@ -664,7 +721,11 @@ class SvgBackend(Backend):
                     display=raw if local == "metadata" else None,
                 )
             )
-        groups = [group("svg:metadata", "SVG metadata", fields, source="SVG", removable=True)] if fields else []
+        groups = (
+            [group("svg:metadata", "SVG metadata", fields, source="SVG", removable=True)]
+            if fields
+            else []
+        )
         return metadata(
             "svg",
             "SVG image",
@@ -692,13 +753,17 @@ class SvgBackend(Backend):
             payload = gzip.decompress(payload)
         root = etree.fromstring(payload, parser)
         counts: dict[str, int] = {}
-        for element in list(root.xpath("//*[local-name()='title' or local-name()='desc' or local-name()='metadata']")):
+        for element in list(
+            root.xpath(
+                "//*[local-name()='title' or local-name()='desc' or local-name()='metadata']"
+            )
+        ):
             local = _local_name(element.tag)
             index = counts.get(local, 0)
             counts[local] = index + 1
             field_id = f"svg:{local}" + (f":{index}" if index else "")
             edit = edits.get(field_id)
-            if strip_all or f"@group:svg:metadata" in edits or (edit and edit.op == "remove"):
+            if strip_all or "@group:svg:metadata" in edits or (edit and edit.op == "remove"):
                 parent = element.getparent()
                 if parent is not None:
                     parent.remove(element)
@@ -738,7 +803,14 @@ class MediaBackend(Backend):
                     )
                 )
             if fields:
-                groups.append(group(f"mediainfo:{index}", f"{track.track_type} track", fields, source="MediaInfo"))
+                groups.append(
+                    group(
+                        f"mediainfo:{index}",
+                        f"{track.track_type} track",
+                        fields,
+                        source="MediaInfo",
+                    )
+                )
         return metadata(
             _extension(path).lstrip("."),
             f"{_extension(path).lstrip('.').upper()} media",
@@ -825,7 +897,11 @@ def _exif_spec(ifd: str, tag_id: int, value: Any) -> dict[str, Any]:
 
 
 def _rational_value(value: Any) -> Any:
-    if isinstance(value, tuple) and len(value) == 2 and all(isinstance(item, int) for item in value):
+    if (
+        isinstance(value, tuple)
+        and len(value) == 2
+        and all(isinstance(item, int) for item in value)
+    ):
         return value[0] / value[1] if value[1] else 0
     if isinstance(value, tuple):
         return [_rational_value(item) for item in value]
@@ -881,14 +957,22 @@ def _strip_jpeg(data: bytes) -> bytes:
         if length < 2 or end > len(data):
             raise CliError("Malformed JPEG segment.", INVALID)
         segment = data[offset:end]
-        keep = marker == 0xE0 or (marker == 0xE2 and data[offset + 4 : offset + 16].startswith(b"ICC_PROFILE"))
+        keep = marker == 0xE0 or (
+            marker == 0xE2 and data[offset + 4 : offset + 16].startswith(b"ICC_PROFILE")
+        )
         if keep or not (0xE0 <= marker <= 0xEF or marker == 0xFE):
             output.extend(segment)
         offset = end
     if orientation and orientation != 1:
         import piexif
 
-        exif = {"0th": {piexif.ImageIFD.Orientation: orientation}, "Exif": {}, "GPS": {}, "1st": {}, "thumbnail": None}
+        exif = {
+            "0th": {piexif.ImageIFD.Orientation: orientation},
+            "Exif": {},
+            "GPS": {},
+            "1st": {},
+            "thumbnail": None,
+        }
         try:
             payload = piexif.dump(exif)
             segment = b"\xff\xe1" + (len(payload) + 2).to_bytes(2, "big") + payload
@@ -961,7 +1045,10 @@ def _sensitivity(name: str) -> str | None:
         (("make", "model", "serial", "lens", "device"), "device"),
         (("date", "time", "created", "modified", "year"), "time"),
         (("software", "application", "producer", "encoder", "generator"), "software"),
-        (("comment", "description", "title", "subject", "keyword", "thumbnail", "cover"), "content"),
+        (
+            ("comment", "description", "title", "subject", "keyword", "thumbnail", "cover"),
+            "content",
+        ),
     ):
         if any(word in lower for word in words):
             return label

@@ -81,13 +81,16 @@ def test_convert_uploads_polls_and_writes_safe_pdf(monkeypatch, tmp_path, capsys
             body = request.read()
             seen["body"] = body
             seen["content_type"] = request.headers["content-type"]
-            return httpx.Response(202, json={
-                "id": _ID,
-                "status": "queued",
-                "sha256": "a" * 64,
-                "bytes": len(source.read_bytes()),
-                "created_at": "2026-10-29T11:00:00Z",
-            })
+            return httpx.Response(
+                202,
+                json={
+                    "id": _ID,
+                    "status": "queued",
+                    "sha256": "a" * 64,
+                    "bytes": len(source.read_bytes()),
+                    "created_at": "2026-10-29T11:00:00Z",
+                },
+            )
         if request.url.path.endswith("/report"):
             return httpx.Response(200, json=_report())
         if request.url.path.endswith("/pdf"):
@@ -258,10 +261,13 @@ def test_existing_output_is_not_replaced_without_force(monkeypatch, tmp_path, ca
 def test_bluepaper_requires_login(tmp_path):
     source = tmp_path / "memo.pdf"
     source.write_bytes(b"%PDF")
-    assert main(
-        ["bluepaper", "convert", str(source)],
-        store=MemoryStore(),
-    ) == 6
+    assert (
+        main(
+            ["bluepaper", "convert", str(source)],
+            store=MemoryStore(),
+        )
+        == 6
+    )
 
 
 def test_bluepaper_without_subcommand():

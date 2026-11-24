@@ -62,14 +62,17 @@ def test_clone_and_bluegate_scan_wait_and_print_the_report(monkeypatch, capsys, 
         assert request.url.host == "gate.example"
         if request.method == "POST" and request.url.path == "/scans":
             seen["body"] = json.loads(request.content)
-            return httpx.Response(202, json={
-                "scan_id": _SCAN,
-                "status": "queued",
-                "repo": "https://github.com/owner/repository",
-                "commit": _SHA,
-                "ref": "main",
-                "poll": f"/scans/{_SCAN}",
-            })
+            return httpx.Response(
+                202,
+                json={
+                    "scan_id": _SCAN,
+                    "status": "queued",
+                    "repo": "https://github.com/owner/repository",
+                    "commit": _SHA,
+                    "ref": "main",
+                    "poll": f"/scans/{_SCAN}",
+                },
+            )
         if request.url.params.get("format") == "text":
             seen["text"] = True
             return httpx.Response(200, text="BlueGate MALICIOUS owner/repository\n")
@@ -105,11 +108,14 @@ def test_queued_scan_keeps_the_resolved_commit(monkeypatch):
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":
-            return httpx.Response(202, json={
-                "scan_id": _SCAN,
-                "status": "queued",
-                "commit": _SHA[:7],
-            })
+            return httpx.Response(
+                202,
+                json={
+                    "scan_id": _SCAN,
+                    "status": "queued",
+                    "commit": _SHA[:7],
+                },
+            )
         if request.url.params.get("format") == "text":
             return httpx.Response(200, text="BlueGate MALICIOUS owner/repository\n")
         return httpx.Response(200, json=_done(input={"repo": "owner/repository"}))
@@ -273,7 +279,10 @@ def test_full_sha_mismatch_prints_no_verdict(monkeypatch, capsys):
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.params.get("format"):
             raise AssertionError("report fetched for the wrong commit")
-        return httpx.Response(200, json=_done(input={"commit": "ff" * 20, "repo": "https://github.com/owner/repository"}))
+        return httpx.Response(
+            200,
+            json=_done(input={"commit": "ff" * 20, "repo": "https://github.com/owner/repository"}),
+        )
 
     store = MemoryStore()
     store.save(_session())
@@ -327,7 +336,12 @@ def test_default_bluegate_api_url(monkeypatch):
 def test_bluegate_api_url_is_separate_from_blueskills(monkeypatch, tmp_path):
     monkeypatch.setenv("BLUETHROAT_CONFIG_DIR", str(tmp_path))
     (tmp_path / "config.json").write_text(
-        json.dumps({"api_url": "https://file-skills.example", "bluegate_api_url": "https://file-gate.example/"}),
+        json.dumps(
+            {
+                "api_url": "https://file-skills.example",
+                "bluegate_api_url": "https://file-gate.example/",
+            }
+        ),
         encoding="utf-8",
     )
     monkeypatch.setenv("BLUETHROAT_API_URL", "https://skills.example")

@@ -72,9 +72,7 @@ def test_coordinates_follow_exif_oriented_dimensions(tmp_path: Path) -> None:
     with Image.open(output) as result:
         assert result.size == (2, 3)
         assert {
-            result.getpixel((x, y))
-            for x in range(result.width)
-            for y in range(result.height)
+            result.getpixel((x, y)) for x in range(result.width) for y in range(result.height)
         } == {FILL}
 
 

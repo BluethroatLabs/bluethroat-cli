@@ -82,7 +82,9 @@ class BlueGateClient:
                 headers=self._headers(accept="text/plain"),
             )
         except httpx.HTTPError as exc:
-            raise CliError(f"Could not reach BlueGate ({exc.__class__.__name__}).", SERVICE) from exc
+            raise CliError(
+                f"Could not reach BlueGate ({exc.__class__.__name__}).", SERVICE
+            ) from exc
         if response.status_code != 200:
             _raise_bluegate(response.status_code, _json_body(response))
             raise CliError("The report was not ready.", SERVICE)
@@ -124,7 +126,9 @@ class BlueGateClient:
                 **kwargs,
             )
         except httpx.HTTPError as exc:
-            raise CliError(f"Could not reach BlueGate ({exc.__class__.__name__}).", SERVICE) from exc
+            raise CliError(
+                f"Could not reach BlueGate ({exc.__class__.__name__}).", SERVICE
+            ) from exc
         body = _json_body(response)
         return response.status_code, body | {"_retry_after": response.headers.get("retry-after")}
 
@@ -141,15 +145,20 @@ def _finished(doc: dict) -> bool:
 def _raise_bluegate(code: int, doc: dict) -> None:
     if code == 401:
         raise CliError(
-            str(doc.get("error") or "BlueGate refused the GitHub token. Run bluethroat auth login."),
+            str(
+                doc.get("error") or "BlueGate refused the GitHub token. Run bluethroat auth login."
+            ),
             AUTH,
         )
     if code == 404:
         raise CliError(
-            str(doc.get("error") or (
-                "BlueGate returned HTTP 404. Check BLUETHROAT_BLUEGATE_API_URL "
-                "if this was not a missing repository."
-            )),
+            str(
+                doc.get("error")
+                or (
+                    "BlueGate returned HTTP 404. Check BLUETHROAT_BLUEGATE_API_URL "
+                    "if this was not a missing repository."
+                )
+            ),
             INVALID,
         )
     if code in {403, 451}:

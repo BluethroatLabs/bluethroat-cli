@@ -82,8 +82,7 @@ class BluePaperClient:
                 return body
             interval = min(10.0, interval + 1.0)
         raise CliError(
-            "The conversion was not ready after 15 minutes. "
-            f"Conversion id: {conversion_id}",
+            f"The conversion was not ready after 15 minutes. Conversion id: {conversion_id}",
             SERVICE,
         )
 

@@ -39,25 +39,31 @@ def test_device_flow_login(monkeypatch, capsys):
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/login/device/code":
-            return httpx.Response(200, json={
-                "device_code": "device",
-                "user_code": "WDJB-MJHT",
-                "verification_uri": "https://github.com/login/device",
-                "expires_in": 900,
-                "interval": 5,
-            })
+            return httpx.Response(
+                200,
+                json={
+                    "device_code": "device",
+                    "user_code": "WDJB-MJHT",
+                    "verification_uri": "https://github.com/login/device",
+                    "expires_in": 900,
+                    "interval": 5,
+                },
+            )
         if request.url.path == "/login/oauth/access_token":
             steps["token"] += 1
             if steps["token"] == 1:
                 return httpx.Response(200, json={"error": "authorization_pending"})
             if steps["token"] == 2:
                 return httpx.Response(200, json={"error": "slow_down"})
-            return httpx.Response(200, json={
-                "access_token": "ghu_new",
-                "refresh_token": "ghr_new",
-                "expires_in": 28800,
-                "refresh_token_expires_in": 15897600,
-            })
+            return httpx.Response(
+                200,
+                json={
+                    "access_token": "ghu_new",
+                    "refresh_token": "ghr_new",
+                    "expires_in": 28800,
+                    "refresh_token_expires_in": 15897600,
+                },
+            )
         if request.url.path == "/user":
             assert request.headers["authorization"] == "Bearer ghu_new"
             return httpx.Response(200, json={"login": "octocat", "id": 7})
@@ -90,12 +96,15 @@ def test_cancelled_login(monkeypatch):
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/device/code"):
-            return httpx.Response(200, json={
-                "device_code": "device",
-                "user_code": "ABCD-EFGH",
-                "expires_in": 900,
-                "interval": 1,
-            })
+            return httpx.Response(
+                200,
+                json={
+                    "device_code": "device",
+                    "user_code": "ABCD-EFGH",
+                    "expires_in": 900,
+                    "interval": 1,
+                },
+            )
         return httpx.Response(200, json={"error": "access_denied"})
 
     code = main(
@@ -121,39 +130,49 @@ def test_scan_waits_and_sends_github_token(monkeypatch, capsys):
         if request.url.path == "/scan.json":
             body = parse_qs(request.content.decode())
             seen["repo_url"] = body["repo_url"][0]
-            return httpx.Response(202, json={
-                "scan_id": "abc123",
-                "status": "queued_deep",
-                "worst_verdict": "clean",
-                "source": f"https://github.com/owner/repository/tree/{ref}",
-                "commit": ref[:7],
-            })
+            return httpx.Response(
+                202,
+                json={
+                    "scan_id": "abc123",
+                    "status": "queued_deep",
+                    "worst_verdict": "clean",
+                    "source": f"https://github.com/owner/repository/tree/{ref}",
+                    "commit": ref[:7],
+                },
+            )
         polls["n"] += 1
         if polls["n"] == 1:
             return httpx.Response(404, json={"error": "unknown scan_id"})
-        return httpx.Response(200, json={
-            "scan_id": "abc123",
-            "status": "done",
-            "complete": True,
-            "verdict": "malicious",
-            "score": 86,
-            "source": f"https://github.com/owner/repository/tree/{ref}",
-            "reports": [{
-                "skill_name": "demo",
+        return httpx.Response(
+            200,
+            json={
+                "scan_id": "abc123",
+                "status": "done",
+                "complete": True,
                 "verdict": "malicious",
-                "risk_score": 86,
-                "layers_run": ["static", "ast"],
-                "findings": [{
-                    "severity": "high",
-                    "title": "Credential file reaches a network sink",
-                    "layer": "ast",
-                    "file": "scripts/sync.py",
-                    "line": 12,
-                    "detail": "Script reads a credential path and performs network I/O.",
-                    "evidence": "open(key)",
-                }],
-            }],
-        })
+                "score": 86,
+                "source": f"https://github.com/owner/repository/tree/{ref}",
+                "reports": [
+                    {
+                        "skill_name": "demo",
+                        "verdict": "malicious",
+                        "risk_score": 86,
+                        "layers_run": ["static", "ast"],
+                        "findings": [
+                            {
+                                "severity": "high",
+                                "title": "Credential file reaches a network sink",
+                                "layer": "ast",
+                                "file": "scripts/sync.py",
+                                "line": 12,
+                                "detail": "Script reads a credential path and performs network I/O.",
+                                "evidence": "open(key)",
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
 
     store = MemoryStore()
     store.save(_session())
@@ -221,19 +240,24 @@ def test_skill_md_and_zip(monkeypatch, tmp_path: Path):
             seen["zip"] = "yes"
         else:
             seen["text"] = parse_qs(request.content.decode())["skill_md"][0]
-        return httpx.Response(200, json={
-            "status": "done",
-            "complete": True,
-            "worst_verdict": "clean",
-            "source": "pasted",
-            "reports": [{
-                "skill_name": "demo",
-                "verdict": "clean",
-                "risk_score": 0,
-                "layers_run": ["static"],
-                "findings": [],
-            }],
-        })
+        return httpx.Response(
+            200,
+            json={
+                "status": "done",
+                "complete": True,
+                "worst_verdict": "clean",
+                "source": "pasted",
+                "reports": [
+                    {
+                        "skill_name": "demo",
+                        "verdict": "clean",
+                        "risk_score": 0,
+                        "layers_run": ["static"],
+                        "findings": [],
+                    }
+                ],
+            },
+        )
 
     store = MemoryStore()
     store.save(_session())
@@ -252,14 +276,17 @@ def test_full_sha_mismatch_prints_no_verdict(monkeypatch, capsys):
     monkeypatch.setenv("BLUETHROAT_API_URL", "https://scanner.example")
 
     def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={
-            "status": "done",
-            "complete": True,
-            "verdict": "clean",
-            "score": 0,
-            "commit": "ffff",
-            "reports": [],
-        })
+        return httpx.Response(
+            200,
+            json={
+                "status": "done",
+                "complete": True,
+                "verdict": "clean",
+                "score": 0,
+                "commit": "ffff",
+                "reports": [],
+            },
+        )
 
     store = MemoryStore()
     store.save(_session())
@@ -295,26 +322,32 @@ def test_credentials_file_is_private(monkeypatch, tmp_path: Path):
 
 
 def test_text_report_leads_with_the_verdict():
-    text = render({
-        "source": "https://github.com/owner/repository",
-        "commit": "abc1234",
-        "worst_verdict": "malicious",
-        "reports": [{
-            "skill_name": "demo",
-            "verdict": "malicious",
-            "risk_score": 86,
-            "layers_run": ["ast"],
-            "findings": [{
-                "severity": "high",
-                "title": "Credential file reaches a network sink",
-                "layer": "ast",
-                "file": "scripts/sync.py",
-                "line": 12,
-                "detail": "Script reads a credential path.",
-                "evidence": "open(key)",
-            }],
-        }],
-    })
+    text = render(
+        {
+            "source": "https://github.com/owner/repository",
+            "commit": "abc1234",
+            "worst_verdict": "malicious",
+            "reports": [
+                {
+                    "skill_name": "demo",
+                    "verdict": "malicious",
+                    "risk_score": 86,
+                    "layers_run": ["ast"],
+                    "findings": [
+                        {
+                            "severity": "high",
+                            "title": "Credential file reaches a network sink",
+                            "layer": "ast",
+                            "file": "scripts/sync.py",
+                            "line": 12,
+                            "detail": "Script reads a credential path.",
+                            "evidence": "open(key)",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
     assert text.splitlines()[0].endswith("MALICIOUS (risk 86/100)")
     assert "evidence: open(key)" in text
 
@@ -342,12 +375,15 @@ def test_refresh_does_not_need_a_client_secret(monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/login/oauth/access_token":
             seen.update(parse_qs(request.content.decode()))
-            return httpx.Response(200, json={
-                "access_token": "ghu_fresh",
-                "refresh_token": "ghr_fresh",
-                "expires_in": 28800,
-                "refresh_token_expires_in": 15897600,
-            })
+            return httpx.Response(
+                200,
+                json={
+                    "access_token": "ghu_fresh",
+                    "refresh_token": "ghr_fresh",
+                    "expires_in": 28800,
+                    "refresh_token_expires_in": 15897600,
+                },
+            )
         if request.url.path == "/user":
             return httpx.Response(200, json={"login": "octocat", "id": 7})
         raise AssertionError(request.url.path)

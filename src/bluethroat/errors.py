@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 CLEAN = 0
 SUSPICIOUS = 1
 MALICIOUS = 2
